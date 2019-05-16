@@ -11,7 +11,7 @@ const (
 
 func Assert(t *testing.T, condition bool, args ...interface{}) {
 	if !condition {
-		t.Fatal(args)
+		t.Fatal(args...)
 	}
 }
 
@@ -25,9 +25,7 @@ func TestEmpty(t *testing.T) {
 
 func TestNoClasses(t *testing.T) {
 	defer func() {
-		if err := recover(); err != nil {
-			// we are good
-		}
+		_ = recover()
 	}()
 	c := NewClassifier()
 	Assert(t, false, "should have panicked:", c)
@@ -35,9 +33,7 @@ func TestNoClasses(t *testing.T) {
 
 func TestNotUnique(t *testing.T) {
 	defer func() {
-		if err := recover(); err != nil {
-			// we are good
-		}
+		_ = recover()
 	}()
 	c := NewClassifier("Good", "Good", "Bad", "Cow")
 	Assert(t, false, "should have panicked:", c)
@@ -45,9 +41,7 @@ func TestNotUnique(t *testing.T) {
 
 func TestOneClass(t *testing.T) {
 	defer func() {
-		if err := recover(); err != nil {
-			// we are good
-		}
+		_ = recover()
 	}()
 	c := NewClassifier(Good)
 	Assert(t, false, "should have panicked:", c)
@@ -136,16 +130,15 @@ func TestSeenLearned(t *testing.T) {
 	doc1 := []string{"hehe"}
 	doc2 := []string{}
 	doc3 := []string{"ayaya", "ppo", "lim", "inf"}
-	var scores []float64
-	scores, _, _ = c.LogScores(doc1)
-	scores, _, _ = c.LogScores(doc2)
-	scores, _, _ = c.LogScores(doc3)
-	scores, _, _ = c.ProbScores(doc1)
-	scores, _, _ = c.ProbScores(doc2)
-	scores, _, _ = c.ProbScores(doc3)
-	scores, _, _, _ = c.SafeProbScores(doc1)
-	scores, _, _, _ = c.SafeProbScores(doc2)
-	scores, _, _, _ = c.SafeProbScores(doc3)
+	_, _, _ = c.LogScores(doc1)
+	_, _, _ = c.LogScores(doc2)
+	_, _, _ = c.LogScores(doc3)
+	_, _, _ = c.ProbScores(doc1)
+	_, _, _ = c.ProbScores(doc2)
+	_, _, _ = c.ProbScores(doc3)
+	_, _, _, _ = c.SafeProbScores(doc1)
+	_, _, _, _ = c.SafeProbScores(doc2)
+	scores, _, _, _ := c.SafeProbScores(doc3)
 	println(scores)
 	Assert(t, c.Learned() == 2, "learned")
 	Assert(t, c.Seen() == 9, "seen")
@@ -153,7 +146,6 @@ func TestSeenLearned(t *testing.T) {
 	Assert(t, count[0] == 3, "counted-good")
 	Assert(t, count[1] == 3, "counted-bad")
 	Assert(t, c.Learned() == 2, "learned")
-
 }
 
 func TestInduceUnderflow(t *testing.T) {
@@ -251,9 +243,7 @@ func TestTfIdClassifier_SanityChecks(t *testing.T) {
 	c.Learn([]string{"tall", "handsome", "rich"}, Good)
 
 	defer func() {
-		if err := recover(); err != nil {
-			// we are good
-		}
+		_ = recover()
 	}()
 	c.LogScores([]string{"a", "b", "c"})
 	Assert(t, false, "Should have panicked:Need to run ConvertTermsFreqToTfIdf() first..", c)
@@ -325,9 +315,7 @@ func TestTfIdClassifier_CheckForDoubleConvert(t *testing.T) {
 	c.ConvertTermsFreqToTfIdf()
 
 	defer func() {
-		if err := recover(); err != nil {
-			// we are good
-		}
+		_ = recover()
 	}()
 	c.ConvertTermsFreqToTfIdf()
 	Assert(t, false, "Should have panicked:Can only run ConvertTermsFreqToTfIdf() once after a learning cycle.", c)

@@ -80,20 +80,6 @@ func (d *classData) getWordProb(word string) float64 {
 	return float64(value) / float64(d.Total)
 }
 
-// getWordsProb returns P(D|C_j) -- the probability of seeing
-// this set of words in a document of this class.
-//
-// Note that words should not be empty, and this method of
-// calulation is prone to underflow if there are many words
-// and their individual probabilties are small.
-func (d *classData) getWordsProb(words []string) (prob float64) {
-	prob = 1
-	for _, word := range words {
-		prob *= d.getWordProb(word)
-	}
-	return
-}
-
 // NewClassifierTfIdf returns a new classifier. The classes provided
 // should be at least 2 in number and unique, or this method will
 // panic.
@@ -165,6 +151,7 @@ func NewClassifierFromFile(name string) (c *Classifier, err error) {
 	if err != nil {
 		return nil, err
 	}
+	defer file.Close()
 	return NewClassifierFromReader(file)
 }
 
@@ -184,7 +171,7 @@ func NewClassifierFromReader(r io.Reader) (c *Classifier, err error) {
 // not implemented here.
 func (c *Classifier) getPriors() (priors []float64) {
 	n := len(c.Classes)
-	priors = make([]float64, n, n)
+	priors = make([]float64, n)
 	sum := 0
 	for index, class := range c.Classes {
 		total := c.datas[class].Total
@@ -210,7 +197,6 @@ func (c *Classifier) Learned() int {
 func (c *Classifier) Seen() int {
 	return int(atomic.LoadInt32(&c.seen))
 }
-
 
 // IsTfIdf returns true if we are a classifier of type TfIdf
 func (c *Classifier) IsTfIdf() bool {
@@ -329,7 +315,7 @@ func (c *Classifier) LogScores(document []string) (scores []float64, inx int, st
 	}
 
 	n := len(c.Classes)
-	scores = make([]float64, n, n)
+	scores = make([]float64, n)
 	priors := c.getPriors()
 
 	// calculate the score for each class
@@ -363,7 +349,7 @@ func (c *Classifier) ProbScores(doc []string) (scores []float64, inx int, strict
 		panic("Using a TF-IDF classifier. Please call ConvertTermsFreqToTfIdf before calling ProbScores.")
 	}
 	n := len(c.Classes)
-	scores = make([]float64, n, n)
+	scores = make([]float64, n)
 	priors := c.getPriors()
 	sum := float64(0)
 	// calculate the score for each class
@@ -403,8 +389,8 @@ func (c *Classifier) SafeProbScores(doc []string) (scores []float64, inx int, st
 	}
 
 	n := len(c.Classes)
-	scores = make([]float64, n, n)
-	logScores := make([]float64, n, n)
+	scores = make([]float64, n)
+	logScores := make([]float64, n)
 	priors := c.getPriors()
 	sum := float64(0)
 	// calculate the score for each class
@@ -472,7 +458,6 @@ func (c *Classifier) WordsByClass(class Class) (freqMap map[string]float64) {
 	return freqMap
 }
 
-
 // WriteToFile serializes this classifier to a file.
 func (c *Classifier) WriteToFile(name string) (err error) {
 	file, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE, 0644)
@@ -483,11 +468,13 @@ func (c *Classifier) WriteToFile(name string) (err error) {
 }
 
 // WriteClassesToFile writes all classes to files.
-func (c *Classifier) WriteClassesToFile(rootPath string) (err error) {
+func (c *Classifier) WriteClassesToFile(rootPath string) error {
 	for name := range c.datas {
-		c.WriteClassToFile(name, rootPath)
+		if err := c.WriteClassToFile(name, rootPath); err != nil {
+			return err
+		}
 	}
-	return
+	return nil
 }
 
 // WriteClassToFile writes a single class to file.
@@ -503,7 +490,6 @@ func (c *Classifier) WriteClassToFile(name Class, rootPath string) (err error) {
 	return
 }
 
-
 // WriteTo serializes this classifier to GOB and write to Writer.
 func (c *Classifier) WriteTo(w io.Writer) (err error) {
 	enc := gob.NewEncoder(w)
@@ -517,10 +503,10 @@ func (c *Classifier) WriteTo(w io.Writer) (err error) {
 func (c *Classifier) ReadClassFromFile(class Class, location string) (err error) {
 	fileName := filepath.Join(location, string(class))
 	file, err := os.Open(fileName)
-
 	if err != nil {
 		return err
 	}
+	defer file.Close()
 
 	dec := gob.NewDecoder(file)
 	w := new(classData)
